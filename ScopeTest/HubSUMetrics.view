@@ -1,0 +1,62 @@
+﻿CREATE VIEW HubSUMetrics
+SCHEMA
+(
+    metricName: string,
+    metadataReference: string,
+    dimIotHubName: string,
+    dimPartitionId: string,
+    dimKey1: string,
+    dimKey2: string,
+    dimKey3: string,
+    dimKey4: string,
+    dimKey5: string,
+    dimKey6: string,
+    dimKey7: string,
+    metricValue1: long,
+    metricValue2: long,
+    metricValue3: long,
+    metricValue4: long,
+    metricValue5: long,
+    metricValue6: long,
+    metricValue7: long,
+    metricValue8: long,
+    metricValue9: long,
+    metricValue10: long,
+    metricValue11: double,
+    metricValue12: double,
+    metricValue13: double,
+    metricValue14: double,
+    metricValue15: double
+)
+AS
+BEGIN
+    searchlog =
+        EXTRACT metricName : string,
+                metadataReference : string,
+                dimIotHubName : string,
+                dimPartitionId : string,
+                dimKey1 : string,
+                dimKey2 : string,
+                dimKey3 : string,
+                dimKey4 : string,
+                dimKey5 : string,
+                dimKey6 : string,
+                dimKey7 : string,
+                metricValue1 : long,
+                metricValue2 : long,
+                metricValue3 : long,
+                metricValue4 : long,
+                metricValue5 : long,
+                metricValue6 : long,
+                metricValue7 : long,
+                metricValue8 : long,
+                metricValue9 : long,
+                metricValue10 : long,
+                metricValue11 : double,
+                metricValue12 : double,
+                metricValue13 : double,
+                metricValue14 : double,
+                metricValue15 : double
+        FROM @"D:\Scope\Data\FakeHubSUMetrics.txt"
+        USING DefaultTextExtractor();
+END;

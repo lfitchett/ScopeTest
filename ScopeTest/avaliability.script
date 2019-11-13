@@ -1,0 +1,30 @@
+﻿//Script GUID:1977496a-f7b1-45fe-b810-e097b7c14e0b
+//Used for tracking history
+
+persistedMetrics =
+    EXTRACT name : string,
+            tags : string,
+            time : DateTime,
+            value : double,
+            key : int
+    FROM "D:/Scope/Data/persisted.txt"
+    USING DefaultTextExtractor();
+
+runningTimes =
+    SELECT ANY_VALUE(name) AS name,
+           ANY_VALUE(tags) AS tags,
+           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration,
+           key
+    FROM persistedMetrics
+    WHERE name == "edgeagent_total_time_running_correctly_seconds" OR name == "edgeagent_total_time_expected_running_seconds"
+    GROUP BY key;
+//
+//avaliabilities =
+//    SELECT *
+//    
+//    GROUP BY tags
+//    FROM runningTimes;
+
+OUTPUT runningTimes
+TO "D:/Scope/Data/out1.txt"
+USING DefaultTextOutputter();

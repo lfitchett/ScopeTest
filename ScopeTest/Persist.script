@@ -1,0 +1,18 @@
+﻿//Script GUID:8baffc12-f087-43c8-a014-17c039c68f7e
+//Used for tracking history
+rawMetrics =
+    VIEW "HubSUMetrics.view";
+
+persistedMetrics =
+    SELECT dimKey1 AS name,
+           dimKey2 AS tags,
+           new DateTime(metricValue1, DateTimeKind.Utc) AS time,
+           metricValue11 AS value,
+           Metric.GetMetricKey(dimKey1, dimKey2) AS key
+    FROM rawMetrics
+    ORDER BY time
+    WHERE metricName == "edgePrometheousMetric";
+
+OUTPUT persistedMetrics
+TO "D:/Scope/Data/persisted.txt"
+USING DefaultTextOutputter();
