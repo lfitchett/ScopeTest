@@ -10,20 +10,29 @@ persistedMetrics =
     FROM "D:/Scope/Data/persisted.txt"
     USING DefaultTextExtractor();
 
-runningTimes =
-    SELECT ANY_VALUE(name) AS name,
-           ANY_VALUE(tags) AS tags,
-           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration,
-           key
+expectedRunning =
+    SELECT tags,
+           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration
     FROM persistedMetrics
-    WHERE name == "edgeagent_total_time_running_correctly_seconds" OR name == "edgeagent_total_time_expected_running_seconds"
-    GROUP BY key;
+    WHERE name == "edgeagent_total_time_expected_running_seconds"
+    GROUP BY tags;
+
+actualRunning =
+    SELECT tags,
+           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration
+    FROM persistedMetrics
+    WHERE name == "edgeagent_total_time_running_correctly_seconds"
+    GROUP BY tags;
 
 avaliabilities =
-    SELECT tags,
-           Helper.Avaliability(LIST(new NamedValue{Name = name, Value = duration})) AS avaliability
-    GROUP BY tags
-    FROM runningTimes;
+    SELECT e.tags,
+           a.duration AS actualRunningDuration,
+           e.duration AS expectedRunningDuration,
+           a.duration / e.duration AS avaliability
+    FROM actualRunning AS a
+         INNER JOIN
+             expectedRunning AS e
+         ON e.tags == a.tags;
 
 OUTPUT avaliabilities
 TO "D:/Scope/Data/out1.txt"
