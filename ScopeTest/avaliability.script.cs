@@ -5,11 +5,18 @@ using System.IO;
 using System.Text;
 using ScopeRuntime;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 public class DatedValue
 {
     public double Value { get; set; }
     public DateTime Time { get; set; }
+}
+
+public class NamedValue
+{
+    public double Value { get; set; }
+    public string Name { get; set; }
 }
 
 public static class Helper
@@ -32,6 +39,19 @@ public static class Helper
         }
 
         return total + highest - lowest;
+    }
+
+    public static double Avaliability(IEnumerable<NamedValue> namedValues)
+    {
+        var expectedRunning = namedValues.Where(v => v.Name == "edgeagent_total_time_expected_running_seconds");
+        var actuallyRunning = namedValues.Where(v => v.Name == "edgeagent_total_time_running_correctly_seconds");
+
+        if (expectedRunning.Count() != 1 || actuallyRunning.Count() != 1)
+        {
+            return -1;
+        }
+
+        return actuallyRunning.Single().Value / expectedRunning.Single().Value;
     }
 
     public static string print<T>(IEnumerable<T> stuff)

@@ -18,13 +18,13 @@ runningTimes =
     FROM persistedMetrics
     WHERE name == "edgeagent_total_time_running_correctly_seconds" OR name == "edgeagent_total_time_expected_running_seconds"
     GROUP BY key;
-//
-//avaliabilities =
-//    SELECT *
-//    
-//    GROUP BY tags
-//    FROM runningTimes;
 
-OUTPUT runningTimes
+avaliabilities =
+    SELECT tags,
+           Helper.Avaliability(LIST(new NamedValue{Name = name, Value = duration})) AS avaliability
+    GROUP BY tags
+    FROM runningTimes;
+
+OUTPUT avaliabilities
 TO "D:/Scope/Data/out1.txt"
 USING DefaultTextOutputter();
