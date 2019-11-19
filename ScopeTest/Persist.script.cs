@@ -5,22 +5,10 @@ using System.IO;
 using System.Text;
 using ScopeRuntime;
 using System.Linq;
+using Newtonsoft.Json;
 
-public class Metric
+public static class PersistHelper
 {
-    public DateTime TimeGeneratedUtc { get; set; }
-    public string Name { get; set; }
-    public double Value { get; set; }
-    public string Tags { get; set; }
-
-    public Metric(DateTime timeGeneratedUtc, string name, double value, string tags)
-    {
-        this.TimeGeneratedUtc = timeGeneratedUtc;
-        this.Name = name;
-        this.Value = value;
-        this.Tags = tags;
-    }
-
     public static int GetMetricKey(string name, string tags)
     {
         int hash = 17;
@@ -28,5 +16,14 @@ public class Metric
         hash = hash * 31 + tags.GetHashCode();
 
         return hash;
+    }
+
+    public static string StripTags(string rawTags)
+    {
+        Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
+        tags.Remove("ms_telemetry");
+        tags.Remove("instance");
+
+        return JsonConvert.SerializeObject(tags);
     }
 }

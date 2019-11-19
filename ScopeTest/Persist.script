@@ -5,12 +5,11 @@ rawMetrics =
 
 persistedMetrics =
     SELECT dimKey1 AS name,
-           dimKey2 AS tags,
+           PersistHelper.StripTags(dimKey2) AS tags,
            new DateTime(metricValue1, DateTimeKind.Utc) AS time,
            metricValue11 AS value,
-           Metric.GetMetricKey(dimKey1, dimKey2) AS key
+           PersistHelper.GetMetricKey(dimKey1, dimKey2) AS key
     FROM rawMetrics
-    ORDER BY time
     WHERE metricName == "edgePrometheousMetric";
 
 OUTPUT persistedMetrics
