@@ -19,30 +19,46 @@ running =
     FROM persistedMetrics
     WHERE name == "edgeagent_total_time_expected_running_seconds" OR name == "edgeagent_total_time_running_correctly_seconds";
 
-// group by module and device device
+// group by module, device and instance to calculate duration
 running =
     SELECT name,
            tags["module"]AS module,
            tags["device_id"]AS device,
-           Helper.Hash(name, tags["module"], tags["device_id"]) AS uid,
+           tags["instance"]AS instance,
+           Helper.Hash(name, tags["module"], tags["device_id"], tags["instance"]) AS uid,
            value,
            time
     FROM running
-    WHERE tags.ContainsKey("module") AND tags.ContainsKey("device_id");
+    WHERE tags.ContainsKey("module") AND tags.ContainsKey("device_id") AND tags.ContainsKey("instance");
 
 running =
     SELECT ANY_VALUE(name) AS name,
            ANY_VALUE(module) AS module,
            ANY_VALUE(device) AS device,
-           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration,
+           MAX(value) - MIN(value) AS duration,
            uid
     FROM running
     GROUP BY uid;
 
+//sum up instances from same device
+running =
+    SELECT *,
+           Helper.Hash(name, module, device) AS uid2
+    FROM running;
+
+running =
+    SELECT ANY_VALUE(name) AS name,
+           ANY_VALUE(module) AS module,
+           ANY_VALUE(device) AS device,
+           SUM(duration) AS duration,
+           uid2
+    FROM running
+    GROUP BY uid2;
+
 // split into actual and expected
 running =
     SELECT *,
-           Helper.Hash(module, device) AS uid2
+           Helper.Hash(module, device) AS uid3
     FROM running;
 
 actual =
@@ -65,8 +81,9 @@ avaliabilities =
     FROM actual AS a
          INNER JOIN
              expected AS e
-         ON e.uid2 == a.uid2;
+         ON e.uid3 == a.uid3;
 
 OUTPUT avaliabilities
 TO "D:/Scope/Data/out1.txt"
+ORDER BY module
 USING DefaultTextOutputter();
