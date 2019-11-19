@@ -6,6 +6,7 @@ using System.Text;
 using ScopeRuntime;
 using System.Linq;
 using System.Runtime.InteropServices;
+using Newtonsoft.Json;
 
 public class DatedValue
 {
@@ -38,5 +39,10 @@ public static class Helper
     public static string print<T>(IEnumerable<T> stuff)
     {
         return string.Join(", ", stuff);
+    }
+
+    public static Dictionary<string, string> ParseTags(string rawTags)
+    {
+        return JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
     }
 }

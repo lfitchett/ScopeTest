@@ -11,29 +11,64 @@ persistedMetrics =
     USING DefaultTextExtractor();
 
 expectedRunning =
-    SELECT tags,
-           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration
+    SELECT name,
+           Helper.ParseTags(tags) AS tags,
+           time,
+           value
     FROM persistedMetrics
-    WHERE name == "edgeagent_total_time_expected_running_seconds"
-    GROUP BY tags;
+    WHERE name == "edgeagent_total_time_expected_running_seconds";
 
-actualRunning =
-    SELECT tags,
-           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration
-    FROM persistedMetrics
-    WHERE name == "edgeagent_total_time_running_correctly_seconds"
-    GROUP BY tags;
+expectedRunning =
+    SELECT *
+    FROM expectedRunning
+    WHERE tags.ContainsKey("module") AND tags.ContainsKey("device_id") AND tags.ContainsKey("instance");
 
-avaliabilities =
-    SELECT e.tags,
-           a.duration AS actualRunningDuration,
-           e.duration AS expectedRunningDuration,
-           a.duration / e.duration AS avaliability
-    FROM actualRunning AS a
-         INNER JOIN
-             expectedRunning AS e
-         ON e.tags == a.tags;
+expectedRunning =
+    SELECT name,
+           tags["module"] + "|" + tags["device_id"]AS uid,
+           int.Parse(tags["instance"]) AS instance,
+           value,
+           time
+    FROM expectedRunning;
 
-OUTPUT avaliabilities
+expectedRunning =
+    SELECT *,
+           uid + "|" + instance AS grouper
+    FROM expectedRunning;
+
+expectedRunning =
+    SELECT ANY_VALUE(name) AS name,
+           ANY_VALUE(uid) AS uid,
+           ANY_VALUE(instance) AS instance,
+           MAX(value) - MIN(value) AS duration,
+           grouper
+    FROM expectedRunning
+    GROUP BY grouper;
+
+expectedRunning =
+    SELECT ANY_VALUE(name) AS name,
+           uid,
+           SUM(duration) AS duration
+    FROM expectedRunning
+    GROUP BY uid;
+
+//actualRunning =
+//    SELECT tags,
+//           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration
+//    FROM persistedMetrics
+//    WHERE name == "edgeagent_total_time_running_correctly_seconds"
+//    GROUP BY tags;
+
+//avaliabilities =
+//    SELECT e.tags,
+//           a.duration AS actualRunningDuration,
+//           e.duration AS expectedRunningDuration,
+//           a.duration / e.duration AS avaliability
+//    FROM actualRunning AS a
+//         INNER JOIN
+//             expectedRunning AS e
+//         ON e.tags == a.tags;
+
+OUTPUT expectedRunning
 TO "D:/Scope/Data/out1.txt"
 USING DefaultTextOutputter();

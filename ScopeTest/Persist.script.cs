@@ -22,7 +22,6 @@ public static class PersistHelper
     {
         Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
         tags.Remove("ms_telemetry");
-        tags.Remove("instance");
 
         return JsonConvert.SerializeObject(tags);
     }
