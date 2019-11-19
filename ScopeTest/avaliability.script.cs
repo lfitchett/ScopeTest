@@ -36,6 +36,16 @@ public static class Helper
         return total + highest - lowest;
     }
 
+    public static int Hash(params object[] values)
+    {
+        int hash = 17;
+        foreach (object o in values)
+        {
+            hash = hash * 31 + o.GetHashCode();
+        }
+        return hash;
+    }
+
     public static string print<T>(IEnumerable<T> stuff)
     {
         return string.Join(", ", stuff);

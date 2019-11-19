@@ -10,65 +10,63 @@ persistedMetrics =
     FROM "D:/Scope/Data/persisted.txt"
     USING DefaultTextExtractor();
 
-expectedRunning =
+// filter by metric name and parse tags
+running =
     SELECT name,
            Helper.ParseTags(tags) AS tags,
            time,
            value
     FROM persistedMetrics
-    WHERE name == "edgeagent_total_time_expected_running_seconds";
+    WHERE name == "edgeagent_total_time_expected_running_seconds" OR name == "edgeagent_total_time_running_correctly_seconds";
 
-expectedRunning =
-    SELECT *
-    FROM expectedRunning
-    WHERE tags.ContainsKey("module") AND tags.ContainsKey("device_id") AND tags.ContainsKey("instance");
-
-expectedRunning =
+// group by module and device device
+running =
     SELECT name,
-           tags["module"] + "|" + tags["device_id"]AS uid,
-           int.Parse(tags["instance"]) AS instance,
+           tags["module"]AS module,
+           tags["device_id"]AS device,
+           Helper.Hash(name, tags["module"], tags["device_id"]) AS uid,
            value,
            time
-    FROM expectedRunning;
+    FROM running
+    WHERE tags.ContainsKey("module") AND tags.ContainsKey("device_id");
 
-expectedRunning =
-    SELECT *,
-           uid + "|" + instance AS grouper
-    FROM expectedRunning;
-
-expectedRunning =
+running =
     SELECT ANY_VALUE(name) AS name,
-           ANY_VALUE(uid) AS uid,
-           ANY_VALUE(instance) AS instance,
-           MAX(value) - MIN(value) AS duration,
-           grouper
-    FROM expectedRunning
-    GROUP BY grouper;
-
-expectedRunning =
-    SELECT ANY_VALUE(name) AS name,
-           uid,
-           SUM(duration) AS duration
-    FROM expectedRunning
+           ANY_VALUE(module) AS module,
+           ANY_VALUE(device) AS device,
+           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration,
+           uid
+    FROM running
     GROUP BY uid;
 
-//actualRunning =
-//    SELECT tags,
-//           Helper.Duration(LIST(new DatedValue{Time = time, Value = value})) AS duration
-//    FROM persistedMetrics
-//    WHERE name == "edgeagent_total_time_running_correctly_seconds"
-//    GROUP BY tags;
+// split into actual and expected
+running =
+    SELECT *,
+           Helper.Hash(module, device) AS uid2
+    FROM running;
 
-//avaliabilities =
-//    SELECT e.tags,
-//           a.duration AS actualRunningDuration,
-//           e.duration AS expectedRunningDuration,
-//           a.duration / e.duration AS avaliability
-//    FROM actualRunning AS a
-//         INNER JOIN
-//             expectedRunning AS e
-//         ON e.tags == a.tags;
+actual =
+    SELECT *
+    FROM running
+    WHERE name == "edgeagent_total_time_running_correctly_seconds";
 
-OUTPUT expectedRunning
+expected =
+    SELECT *
+    FROM running
+    WHERE name == "edgeagent_total_time_expected_running_seconds";
+
+// calculate result
+avaliabilities =
+    SELECT e.module,
+           e.device,
+           a.duration / e.duration AS avaliability,
+           a.duration AS actualRunningDuration,
+           e.duration AS expectedRunningDuration
+    FROM actual AS a
+         INNER JOIN
+             expected AS e
+         ON e.uid2 == a.uid2;
+
+OUTPUT avaliabilities
 TO "D:/Scope/Data/out1.txt"
 USING DefaultTextOutputter();
