@@ -1,0 +1,13 @@
+﻿//Script GUID:2e0a8aae-dda6-4671-aa82-54b3c553a5e3
+//Used for tracking history
+
+deviceInfo =
+    SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
+
+deviceInfo =
+    SELECT TOP 5 *
+    FROM deviceInfo;
+
+OUTPUT deviceInfo
+TO "D:/Scope/Data/out2.txt"
+USING DefaultTextOutputter();

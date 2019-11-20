@@ -82,8 +82,18 @@ avaliabilities =
          INNER JOIN
              expected AS e
          ON e.uid3 == a.uid3;
+//
+//deviceInfo =
+//    SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
+
+
 
 OUTPUT avaliabilities
 TO "D:/Scope/Data/out1.txt"
 ORDER BY module
 USING DefaultTextOutputter();
+
+//#DECLARE localCreated string = @"/local/Dev/lefitche/P360/" + "avaliabilitytest" + ".csv";
+//OUTPUT avaliabilities
+//TO @localCreated
+//USING DefaultTextOutputter();

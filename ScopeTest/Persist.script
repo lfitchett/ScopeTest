@@ -7,11 +7,33 @@ persistedMetrics =
     SELECT dimKey1 AS name,
            PersistHelper.StripTags(dimKey2) AS tags,
            new DateTime(metricValue1, DateTimeKind.Utc) AS time,
-           metricValue11 AS value,
-           PersistHelper.GetMetricKey(dimKey1, dimKey2) AS key
+           metricValue11 AS value
     FROM rawMetrics
     WHERE metricName == "edgePrometheousMetric";
 
 OUTPUT persistedMetrics
 TO "D:/Scope/Data/persisted.txt"
 USING DefaultTextOutputter();
+
+persistedMetrics =
+    SELECT TOP 5 *
+    FROM persistedMetrics;
+
+OUTPUT persistedMetrics
+TO "D:/Scope/Data/persisted_small.txt"
+USING DefaultTextOutputter();
+
+#CS
+using Newtonsoft.Json;
+
+public static class PersistHelper
+{
+    public static string StripTags(string rawTags)
+    {
+        Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
+        tags.Remove("ms_telemetry");
+
+        return JsonConvert.SerializeObject(tags);
+    }
+}
+#ENDCS

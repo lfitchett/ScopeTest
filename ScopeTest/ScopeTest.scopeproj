@@ -27,11 +27,15 @@
   <ItemGroup>
     <Script Include="avaliability.script" />
     <Script Include="Persist.script" />
+    <Script Include="test.script" />
     <ScriptCode Include="avaliability.script.cs">
       <DependentUpon>avaliability.script</DependentUpon>
     </ScriptCode>
     <ScriptCode Include="Persist.script.cs">
       <DependentUpon>Persist.script</DependentUpon>
+    </ScriptCode>
+    <ScriptCode Include="test.script.cs">
+      <DependentUpon>test.script</DependentUpon>
     </ScriptCode>
   </ItemGroup>
   <ItemGroup>
