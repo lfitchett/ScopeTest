@@ -7,13 +7,20 @@ persistedMetrics =
     SELECT dimKey1 AS name,
            PersistHelper.StripTags(dimKey2) AS tags,
            new DateTime(metricValue1, DateTimeKind.Utc) AS time,
-           metricValue11 AS value,
-           PersistHelper.GetDeviceId(dimKey2) AS deviceId // temp, should be a field
+           metricValue11 AS value
     FROM rawMetrics
     WHERE metricName == "edgePrometheousMetric";
 
+persistedMetrics =
+    SELECT *
+    WHERE tags != null;
+
+persistedMetrics =
+    SELECT *,
+           JsonConvert.DeserializeObject<Dictionary<string, string>>(tags)["device_id"] AS deviceId; // temp, should be an input field
+
 OUTPUT persistedMetrics
-TO "D:/Scope/Data/persisted.txt"
+TO "D:/Scope/Data/AllMetrics.txt"
 USING DefaultTextOutputter();
 
 persistedMetrics =
@@ -21,7 +28,7 @@ persistedMetrics =
     FROM persistedMetrics;
 
 OUTPUT persistedMetrics
-TO "D:/Scope/Data/persisted_small.txt"
+TO "D:/Scope/Data/AllMetricsTop5.txt"
 USING DefaultTextOutputter();
 
 #CS
@@ -31,17 +38,17 @@ public static class PersistHelper
 {
     public static string StripTags(string rawTags)
     {
-        Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
-        tags.Remove("ms_telemetry");
+        try
+        {
+            Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
+            tags.Remove("ms_telemetry");
 
-        return JsonConvert.SerializeObject(tags);
-    }
-
-    public static string GetDeviceId(string rawTags) // Temp
-    {
-        Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
-
-        return tags["device_id"];
+            return JsonConvert.SerializeObject(tags);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 #ENDCS

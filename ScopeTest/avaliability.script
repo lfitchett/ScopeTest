@@ -13,7 +13,7 @@ persistedMetrics =
             time : DateTime,
             value : double,
             deviceId : string
-    FROM "D:/Scope/Data/persisted.txt"
+    FROM "D:/Scope/Data/AllMetrics.txt"
     USING DefaultTextExtractor();
 
 // filter by metric name and parse tags
@@ -30,11 +30,9 @@ running =
     SELECT name,
            tags["module"]AS module,
            tags["instance"]AS instance,
-           Helper.Hash(name, deviceId, tags["module"], tags["instance"]) AS uid,
            value,
            time,
            deviceId
-    FROM running
     WHERE tags.ContainsKey("module") AND tags.ContainsKey("instance");
 
 // this should be unnecessary, but drop any non edge hub or edge agent modules
@@ -44,19 +42,22 @@ running =
 
 // group by module, deviceId and instance to calculate duration
 running =
+    SELECT *,
+           Helper.Hash(name, deviceId, module, instance) AS uid;
+
+
+running =
     SELECT ANY_VALUE(name) AS name,
            ANY_VALUE(module) AS module,
            ANY_VALUE(deviceId) AS deviceId,
            MAX(value) - MIN(value) AS duration,
            uid
-    FROM running
     GROUP BY uid;
 
 //sum up instances from same deviceId
 running =
     SELECT *,
-           Helper.Hash(name, module, deviceId) AS uid2
-    FROM running;
+           Helper.Hash(name, module, deviceId) AS uid2;
 
 running =
     SELECT ANY_VALUE(name) AS name,
@@ -64,14 +65,12 @@ running =
            ANY_VALUE(deviceId) AS deviceId,
            SUM(duration) AS duration,
            uid2
-    FROM running
     GROUP BY uid2;
 
 // split into actual and expected
 running =
     SELECT *,
-           Helper.Hash(module, deviceId) AS uid3
-    FROM running;
+           Helper.Hash(module, deviceId) AS uid3;
 
 actual =
     SELECT *
@@ -127,8 +126,6 @@ avaliabilities =
          LEFT JOIN
              deviceInfo AS d
          ON a.deviceId == d.value;
-
-//resourceLocation != region
 
 // Split into agent and hub
 agentAvaliabilities =
