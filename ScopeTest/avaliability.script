@@ -148,7 +148,7 @@ versionInfo =
 
 agentVersion =
     SELECT deviceId,
-           MAX(ModuleType) AS version
+           ARGMAX(usageTime, ModuleType) AS version
     FROM versionInfo
     WHERE moduleId == @AgentName
     GROUP BY deviceId;
@@ -163,7 +163,7 @@ agentAvaliabilities =
 
 hubVersion =
     SELECT deviceId,
-           MAX(EdgeHubVersion) AS version
+           ARGMAX(usageTime, EdgeHubVersion) AS version
     FROM versionInfo
     WHERE moduleId == @HubName
     GROUP BY deviceId;
