@@ -1,12 +1,18 @@
-﻿//Script GUID:1977496a-f7b1-45fe-b810-e097b7c14e0b
+﻿ //Script GUID:1977496a-f7b1-45fe-b810-e097b7c14e0b
 //Used for tracking history
+
+#DECLARE AgentName string = "$edgeAgent";
+#DECLARE HubName string = "$edgeHub";
+#DECLARE ExpectedMetric string = "edgeagent_total_time_expected_running_seconds";
+#DECLARE ActualMetric string = "edgeagent_total_time_running_correctly_seconds";
+
 
 persistedMetrics =
     EXTRACT name : string,
             tags : string,
             time : DateTime,
             value : double,
-            deviceId: string
+            deviceId : string
     FROM "D:/Scope/Data/persisted.txt"
     USING DefaultTextExtractor();
 
@@ -18,9 +24,8 @@ running =
            value,
            deviceId
     FROM persistedMetrics
-    WHERE name == "edgeagent_total_time_expected_running_seconds" OR name == "edgeagent_total_time_running_correctly_seconds";
+    WHERE name == @ExpectedMetric OR name == @ActualMetric;
 
-// group by module, deviceId and instance to calculate duration
 running =
     SELECT name,
            tags["module"]AS module,
@@ -32,6 +37,12 @@ running =
     FROM running
     WHERE tags.ContainsKey("module") AND tags.ContainsKey("instance");
 
+// this should be unnecessary, but drop any non edge hub or edge agent modules
+running =
+    SELECT *
+    WHERE module == @AgentName OR module == @HubName;
+
+// group by module, deviceId and instance to calculate duration
 running =
     SELECT ANY_VALUE(name) AS name,
            ANY_VALUE(module) AS module,
@@ -65,12 +76,12 @@ running =
 actual =
     SELECT *
     FROM running
-    WHERE name == "edgeagent_total_time_running_correctly_seconds";
+    WHERE name == @ActualMetric;
 
 expected =
     SELECT *
     FROM running
-    WHERE name == "edgeagent_total_time_expected_running_seconds";
+    WHERE name == @ExpectedMetric;
 
 // calculate result
 avaliabilities =
@@ -84,19 +95,94 @@ avaliabilities =
              expected AS e
          ON e.uid3 == a.uid3;
 
+// Add device dimensions 
+//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Azure.SRE.OI/AzureIotHubDeviceActiveInfoDailyV2/2019/11/Data_2019_11_18.ss?property=info
 deviceInfo =
     SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
 
 avaliabilities =
-    SELECT a.module, a.avaliability, a.actualRunningDuration, a.expectedRunningDuration, d.*
+    SELECT a.module,
+           a.avaliability,
+           a.actualRunningDuration,
+           a.expectedRunningDuration,
+           a.deviceId,
+           d.resourceId,
+           d.iotHubName,
+           d.resourceLocation,
+           d.resourceDeploymentUnit,
+           d.skuName,
+           d.subscriptionType,
+           d.resourceGroup,
+           d.solutionType,
+           d.createdFromSuite,
+           d.cloudType,
+           d.SDKVersion,
+           d.RuntimeVersion AS dotnetRuntimeVersion,
+           d.OSName,
+           d.OSVersion,
+           d.OSSkuId,
+           d.HWPlatform,
+           d.OSSimplified
     FROM avaliabilities AS a
          LEFT JOIN
              deviceInfo AS d
          ON a.deviceId == d.value;
 
-OUTPUT avaliabilities
-TO "D:/Scope/Data/out1.txt"
-ORDER BY module
+//resourceLocation != region
+
+// Split into agent and hub
+agentAvaliabilities =
+    SELECT *
+    FROM avaliabilities
+    WHERE module == @AgentName;
+
+hubAvaliabilities =
+    SELECT *
+    FROM avaliabilities
+    WHERE module == @HubName;
+
+// Add version info
+//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Cloud.AzureSRE.AzureIoTEdge/P360IoTEdgeMessagesPROD/2019/11/Data_2019_11_19.ss?property=info
+versionInfo =
+    SSTREAM"D:/Scope/Data/MessagesSent.ss";
+
+agentVersion =
+    SELECT deviceId,
+           MAX(ModuleType) AS version
+    FROM versionInfo
+    WHERE moduleId == @AgentName
+    GROUP BY deviceId;
+
+agentAvaliabilities =
+    SELECT v.version,
+           a.*
+    FROM agentAvaliabilities AS a
+         LEFT JOIN
+             agentVersion AS v
+         ON a.deviceId == v.deviceId;
+
+hubVersion =
+    SELECT deviceId,
+           MAX(EdgeHubVersion) AS version
+    FROM versionInfo
+    WHERE moduleId == @HubName
+    GROUP BY deviceId;
+
+hubAvaliabilities =
+    SELECT v.version,
+           a.*
+    FROM hubAvaliabilities AS a
+         LEFT JOIN
+             hubVersion AS v
+         ON a.deviceId == v.deviceId;
+
+// output
+OUTPUT agentAvaliabilities
+TO "D:/Scope/Data/agent.txt"
+USING DefaultTextOutputter(",");
+
+OUTPUT hubAvaliabilities
+TO "D:/Scope/Data/hub.txt"
 USING DefaultTextOutputter(",");
 
 //#DECLARE localCreated string = @"/local/Dev/lefitche/P360/" + "avaliabilitytest" + ".csv";
