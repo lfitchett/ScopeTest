@@ -7,7 +7,8 @@ persistedMetrics =
     SELECT dimKey1 AS name,
            PersistHelper.StripTags(dimKey2) AS tags,
            new DateTime(metricValue1, DateTimeKind.Utc) AS time,
-           metricValue11 AS value
+           metricValue11 AS value,
+           PersistHelper.GetDeviceId(dimKey2) AS deviceId // temp, should be a field
     FROM rawMetrics
     WHERE metricName == "edgePrometheousMetric";
 
@@ -34,6 +35,13 @@ public static class PersistHelper
         tags.Remove("ms_telemetry");
 
         return JsonConvert.SerializeObject(tags);
+    }
+
+    public static string GetDeviceId(string rawTags) // Temp
+    {
+        Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
+
+        return tags["device_id"];
     }
 }
 #ENDCS
