@@ -1,6 +1,8 @@
 ﻿ //Script GUID:1977496a-f7b1-45fe-b810-e097b7c14e0b
 //Used for tracking history
 
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
+
 #DECLARE AgentName string = "$edgeAgent";
 #DECLARE HubName string = "$edgeHub";
 #DECLARE ExpectedMetric string = "edgeagent_total_time_expected_running_seconds";
@@ -10,9 +12,9 @@
 persistedMetrics =
     EXTRACT name : string,
             tags : string,
+            deviceId : string,
             time : DateTime,
-            value : double,
-            deviceId : string
+            value : double
     FROM "D:/Scope/Data/AllMetrics.txt"
     USING DefaultTextExtractor();
 
@@ -87,8 +89,8 @@ avaliabilities =
     SELECT e.module,
            e.deviceId,
            a.duration / e.duration AS avaliability,
-           a.duration AS actualRunningDuration,
-           e.duration AS expectedRunningDuration
+           a.duration AS actualRunningDurationSeconds,
+           e.duration AS expectedRunningDurationSeconds
     FROM actual AS a
          INNER JOIN
              expected AS e
@@ -102,8 +104,8 @@ deviceInfo =
 avaliabilities =
     SELECT a.module,
            a.avaliability,
-           a.actualRunningDuration,
-           a.expectedRunningDuration,
+           a.actualRunningDurationSeconds,
+           a.expectedRunningDurationSeconds,
            a.deviceId,
            d.resourceId,
            d.iotHubName,
@@ -116,7 +118,7 @@ avaliabilities =
            d.createdFromSuite,
            d.cloudType,
            d.SDKVersion,
-           d.RuntimeVersion AS dotnetRuntimeVersion,
+           d.RuntimeVersion AS DotnetRuntimeVersion,
            d.OSName,
            d.OSVersion,
            d.OSSkuId,
@@ -176,11 +178,11 @@ hubAvaliabilities =
 // output
 OUTPUT agentAvaliabilities
 TO "D:/Scope/Data/agent.txt"
-USING DefaultTextOutputter(",");
+USING DefaultTextOutputter();
 
 OUTPUT hubAvaliabilities
 TO "D:/Scope/Data/hub.txt"
-USING DefaultTextOutputter(",");
+USING DefaultTextOutputter();
 
 //#DECLARE localCreated string = @"/local/Dev/lefitche/P360/" + "avaliabilitytest" + ".csv";
 //OUTPUT avaliabilities

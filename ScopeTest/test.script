@@ -1,13 +1,72 @@
 ﻿//Script GUID:2e0a8aae-dda6-4671-aa82-54b3c553a5e3
 //Used for tracking history
 
-deviceInfo =
-    SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
 
-deviceInfo =
-    SELECT TOP 5 *
-    FROM deviceInfo;
+//#DECLARE StartDate string = @@startDateTime@@;
+#DECLARE StartDate string = @"2019-11-18 00:00";
+#DECLARE EndDate string = @"2019-11-19 00:00";
 
-OUTPUT deviceInfo
-TO "D:/Scope/Data/out2.txt"
+#DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
+
+#DECLARE ServiceAnalyticsSUStreamName string = @"Microsoft.Azure.SRE.OI.PersistedRaw.DHubSUServiceAnalytics12112015V1_AllClouds";
+AzureAnalytics.Initialize(
+    entity = @ServiceAnalyticsSUStreamName);
+
+stream = AzureAnalytics.LoadStream(
+    entity = @ServiceAnalyticsSUStreamName,
+    startDateTime = @StartDate,
+    endDateTime = @EndDate);
+
+//stream =
+//    SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
+
+stream =
+    SELECT TOP 1 *
+    FROM stream;
+
+stream =
+    SELECT @StartDateTime AS StartDate,
+           "Public" AS CloudType,
+           @StartDateTime AS PreciseTimeStamp,
+           "" AS Tenant,
+           "" AS TenantName,
+           "" AS Role,
+           "" AS RoleInstance,
+           "" AS EventId,
+           "" AS metricName,
+           "" AS metadataReference,
+           "FakeHub" AS dimIotHubName,
+           "" AS dimIotHubArmResourceId,
+           "FakeSubscription" AS dimSubscriptionId,
+           metric.Name AS dimKey1,
+           metric.Tags AS dimKey2,
+           TestHelper.GetDeviceId(metric.Tags) AS dimKey3,
+           "" AS dimKey4,
+           "" AS dimKey5,
+           "" AS dimKey6,
+           "" AS dimKey7,
+           metric.TimeGeneratedUtc.Ticks AS metricValue1,
+           0 AS metricValue2,
+           0 AS metricValue3,
+           0 AS metricValue4,
+           0 AS metricValue5,
+           0 AS metricValue6,
+           0 AS metricValue7,
+           0 AS metricValue8,
+           0 AS metricValue9,
+           0 AS metricValue10,
+           metric.Value AS metricValue11,
+           0 AS metricValue12,
+           0 AS metricValue13,
+           0 AS metricValue14
+    FROM stream
+         CROSS APPLY FakeData.GenerateSeries(@StartDateTime) AS metric;
+
+//OUTPUT stream
+//TO "D:/Scope/Data/out2.txt"
+//USING DefaultTextOutputter();
+
+OUTPUT stream
+TO @"/local/Dev/lefitche/P360/test1.csv"
 USING DefaultTextOutputter();

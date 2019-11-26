@@ -1,54 +1,59 @@
 ﻿//Script GUID:8baffc12-f087-43c8-a014-17c039c68f7e
 //Used for tracking history
-rawMetrics =
+
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
+
+#DECLARE CloudType string = @"Public";
+
+SUMetricsRawUnion =
     VIEW "HubSUMetrics.view";
 
-persistedMetrics =
+EdgePrometheousMetrics =
     SELECT dimKey1 AS name,
            PersistHelper.StripTags(dimKey2) AS tags,
+           PersistHelper.GenerateDeviceId(@CloudType, dimIotHubName, dimKey3) AS deviceId,
            new DateTime(metricValue1, DateTimeKind.Utc) AS time,
            metricValue11 AS value
-    FROM rawMetrics
-    WHERE metricName == "edgePrometheousMetric";
+    FROM SUMetricsRawUnion
+    WHERE metricName == "EdgeRuntimeDiagnostics";
 
-persistedMetrics =
+EdgePrometheousMetrics =
     SELECT *
     WHERE tags != null;
 
-persistedMetrics =
-    SELECT *,
-           JsonConvert.DeserializeObject<Dictionary<string, string>>(tags)["device_id"] AS deviceId; // temp, should be an input field
-
-OUTPUT persistedMetrics
+OUTPUT EdgePrometheousMetrics
 TO "D:/Scope/Data/AllMetrics.txt"
 USING DefaultTextOutputter();
 
-persistedMetrics =
-    SELECT TOP 5 *
-    FROM persistedMetrics;
+//AzureAnalytics.PublishStream(
+//            entity = @PersistedRawFolder + @".EdgePrometheousMetrics",
+//            startDateTime = @StartDate,
+//            periodInMinutes = @JobFrequency,
+//            input = EdgePrometheousMetrics,
+//            clusteredBy  = "name",
+//            sortedBy  = "time",
+//            expiryInDays  = @ExpiryInDays);
+            
 
-OUTPUT persistedMetrics
+
+
+
+
+
+
+
+
+
+
+
+EdgePrometheousMetrics =
+    SELECT TOP 5 *
+    FROM EdgePrometheousMetrics;
+
+OUTPUT EdgePrometheousMetrics
 TO "D:/Scope/Data/AllMetricsTop5.txt"
 USING DefaultTextOutputter();
 
 #CS
-using Newtonsoft.Json;
 
-public static class PersistHelper
-{
-    public static string StripTags(string rawTags)
-    {
-        try
-        {
-            Dictionary<string, string> tags = JsonConvert.DeserializeObject<Dictionary<string, string>>(rawTags);
-            tags.Remove("ms_telemetry");
-
-            return JsonConvert.SerializeObject(tags);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-}
 #ENDCS
