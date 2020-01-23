@@ -1,0 +1,130 @@
+﻿//Script GUID:59907fc7-b2b8-415e-b7a0-4cfb49b4d07f
+//Used for tracking history
+
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
+
+//#DECLARE StartDate string = @@startDateTime@@;
+#DECLARE StartDate string = @"2020-1-6 00:00";
+#DECLARE EndDate string = @"2020-1-8 00:00";
+#DECLARE JobFrequency string = @"1440";
+#DECLARE ExpiryInDays string = @"730";
+#DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
+
+#DECLARE CloudType string = @"Public";
+#DECLARE RawStream string = @CloudType + @".Production.DHubSU.HubSUMetrics";
+#DECLARE RawStream_alt1 string = @CloudType + @".Production.DHubSU.HubSUMetrics_alt1";
+
+// Initialize with namespaces
+AzureAnalytics.Initialize
+(
+    entity = @RawStream
+);
+AzureAnalytics.Initialize
+(
+    entity = @RawStream_alt1
+);
+
+// Load raw data from cosmos
+SUMetricsRawData =
+    AzureAnalytics.LoadStream
+    (
+        entity = @RawStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
+SUMetricsRawDataAlt1 =
+    AzureAnalytics.LoadStream
+    (
+        entity = @RawStream_alt1,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
+
+SUMetricsRawUnion =
+    SELECT @StartDateTime AS StartDate,
+           @CloudType AS CloudType,
+           PreciseTimeStamp,
+           Tenant,
+           TenantName,
+           Role,
+           RoleInstance,
+           EventId,
+           metricName,
+           metadataReference,
+           dimIotHubName,
+           dimPartitionId,
+           dimKey1,
+           dimKey2,
+           dimKey3,
+           dimKey4,
+           dimKey5,
+           dimKey6,
+           dimKey7,
+           metricValue1,
+           metricValue2,
+           metricValue3,
+           metricValue4,
+           metricValue5,
+           metricValue6,
+           metricValue7,
+           metricValue8,
+           metricValue9,
+           metricValue10,
+           (double?) metricValue11 AS metricValue11,
+           (double?) metricValue12 AS metricValue12,
+           (double?) metricValue13 AS metricValue13,
+           (double?) metricValue14 AS metricValue14,
+           (double?) metricValue15 AS metricValue15
+    FROM SUMetricsRawData
+    UNION ALL
+    SELECT @StartDateTime AS StartDate,
+           @CloudType AS CloudType,
+           PreciseTimeStamp,
+           Tenant,
+           TenantName,
+           Role,
+           RoleInstance,
+           EventId,
+           metricName,
+           metadataReference,
+           dimIotHubName,
+           dimPartitionId,
+           dimKey1,
+           dimKey2,
+           dimKey3,
+           dimKey4,
+           dimKey5,
+           dimKey6,
+           dimKey7,
+           metricValue1,
+           metricValue2,
+           metricValue3,
+           metricValue4,
+           metricValue5,
+           metricValue6,
+           metricValue7,
+           metricValue8,
+           metricValue9,
+           metricValue10,
+           metricValue11,
+           metricValue12,
+           metricValue13,
+           metricValue14,
+           metricValue15
+    FROM SUMetricsRawDataAlt1;
+
+EdgeRuntimeDiag =
+    SELECT *
+    FROM SUMetricsRawUnion
+    WHERE metricName == "EdgeRuntimeDiagnostics";
+
+AzureAnalytics.PublishStream
+(
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.realdata2",
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = EdgeRuntimeDiag,
+    clusteredBy = "metricName",
+    sortedBy = "StartDate",
+    expiryInDays = @ExpiryInDays
+); 

@@ -5,43 +5,50 @@ using System.IO;
 using System.Text;
 using ScopeRuntime;
 using System.Linq;
-//using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 public class Metric
 {
-    public DateTime TimeGeneratedUtc { get; private set; }
-    public string Name { get; private set; }
-    public double Value { get; private set; }
-    public string Tags { get; private set; }
-
-    public Metric(DateTime timeGeneratedUtc, string name, double value, string tags)
-    {
-        this.TimeGeneratedUtc = timeGeneratedUtc;
-        this.Name = name;
-        this.Value = value;
-        this.Tags = tags;
-    }
+    public DateTime TimeGeneratedUtc;
+    public string Name;
+    public double Value;
+    public string Tags;
+    public string DeviceId;
 }
 
-public static class FakeData
+public static class GenerateMetrics
 {
     static readonly Random rand = new Random();
 
-    public static IEnumerable<Metric> GenerateSeries(DateTime startDay, int numScrapes = 240)
+    public static IEnumerable<Metric> GenerateSeries(DateTime startDay, ScopeArray<string> deviceIds, int numScrapes = 240)
     {
-        return new Metric[] { new Metric(startDay, "test", 5, "tags sdjkhfalsdjfhlasdjfhalsdjfhalsdjfhalsdfjh"),
-                              new Metric(startDay, "test", 55, "tags sdjkhfalsdjfhlasdjfhalsdjfhalsdjfhalsdfjh"),
-                              new Metric(startDay, "test", 555, "tags sdjkhfalsdjfhlasdjfhalsdjfhalsdjfhalsdfjh")
-        };
-    }
+        startDay = startDay.Date;
 
-}
+        for (int i = 0; i < deviceIds.Count; i++)
+        {
+            string deviceId = deviceIds[i];
+            double avaliability = i / (double)deviceIds.Count;
 
-public static class TestHelper
-{
-    public static string GetDeviceId(string tags)
-    {
-        return "Test";
-        //return JsonConvert.DeserializeObject<Dictionary<string, string>>(tags)["device_id"];
+            Dictionary<string, string> baseTags = new Dictionary<string, string>
+                {
+                    {"instance", "1" },
+                    { "device_id", deviceId },
+                };
+
+            for (int j = 0; j < numScrapes; j++)
+            {
+                DateTime currTime = startDay.AddDays(j / (double)numScrapes);
+
+                Dictionary<string, string> tags = new Dictionary<string, string>(baseTags);
+                tags.Add("module", "$edgeAgent");
+                yield return new Metric { TimeGeneratedUtc = currTime, Name = "edgeagent_total_time_expected_running_seconds", Tags = JsonConvert.SerializeObject(tags), DeviceId = deviceId, Value = 500 * j };
+                yield return new Metric { TimeGeneratedUtc = currTime, Name = "edgeagent_total_time_running_correctly_seconds", Tags = JsonConvert.SerializeObject(tags), DeviceId = deviceId, Value = 500 * j * avaliability };
+
+                tags = new Dictionary<string, string>(baseTags);
+                tags.Add("module", "$edgeHub");
+                yield return new Metric { TimeGeneratedUtc = currTime, Name = "edgeagent_total_time_expected_running_seconds", Tags = JsonConvert.SerializeObject(tags), DeviceId = deviceId, Value = 500 * j };
+                yield return new Metric { TimeGeneratedUtc = currTime, Name = "edgeagent_total_time_running_correctly_seconds", Tags = JsonConvert.SerializeObject(tags), DeviceId = deviceId, Value = 500 * j * avaliability };
+            }
+        }
     }
 }

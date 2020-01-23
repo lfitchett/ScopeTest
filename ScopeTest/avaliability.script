@@ -1,31 +1,47 @@
-﻿ //Script GUID:1977496a-f7b1-45fe-b810-e097b7c14e0b
+﻿//Script GUID:1977496a-f7b1-45fe-b810-e097b7c14e0b
 //Used for tracking history
 
 MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
+
+#DECLARE StartDate string = @@startDateTime@@;
+#DECLARE EndDate string = @@endDateTime@@;
+//#DECLARE StartDate string = @"2019-11-28 00:00";
+//#DECLARE EndDate string = @"2019-11-29 00:00";
+#DECLARE JobFrequency string = @"1440";
+#DECLARE ExpiryInDays string = @"730";
+#DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
+#DECLARE EndDateTime DateTime = DateTime.Parse(@StartDate);
 
 #DECLARE AgentName string = "$edgeAgent";
 #DECLARE HubName string = "$edgeHub";
 #DECLARE ExpectedMetric string = "edgeagent_total_time_expected_running_seconds";
 #DECLARE ActualMetric string = "edgeagent_total_time_running_correctly_seconds";
 
+#DECLARE IoTEdgeStream string = "Microsoft.Cloud.AzureSRE.AzureIoTEdge";
+//#DECLARE Stage string = @"@@stage@@";
+#DECLARE Stage string = "PPE";
 
-persistedMetrics =
-    EXTRACT name : string,
-            tags : string,
-            deviceId : string,
-            time : DateTime,
-            value : double
-    FROM "D:/Scope/Data/AllMetrics.txt"
-    USING DefaultTextExtractor();
+#DECLARE MetricsStream string = @"Microsoft.Azure.SRE.OI.lefitche.P360.testProm2";
+AzureAnalytics.Initialize
+(
+    entity = @MetricsStream
+);
+metrics =
+    AzureAnalytics.LoadStream
+    (
+        entity = @MetricsStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
 
 // filter by metric name and parse tags
 running =
     SELECT name,
-           Helper.ParseTags(tags) AS tags,
+           AvaliabilityHelper.ParseTags(tags) AS tags,
            time,
            value,
            deviceId
-    FROM persistedMetrics
+    FROM metrics
     WHERE name == @ExpectedMetric OR name == @ActualMetric;
 
 running =
@@ -45,7 +61,7 @@ running =
 // group by module, deviceId and instance to calculate duration
 running =
     SELECT *,
-           Helper.Hash(name, deviceId, module, instance) AS uid;
+           AvaliabilityHelper.Hash(name, deviceId, module, instance) AS uid;
 
 
 running =
@@ -59,7 +75,7 @@ running =
 //sum up instances from same deviceId
 running =
     SELECT *,
-           Helper.Hash(name, module, deviceId) AS uid2;
+           AvaliabilityHelper.Hash(name, module, deviceId) AS uid2;
 
 running =
     SELECT ANY_VALUE(name) AS name,
@@ -72,7 +88,7 @@ running =
 // split into actual and expected
 running =
     SELECT *,
-           Helper.Hash(module, deviceId) AS uid3;
+           AvaliabilityHelper.Hash(module, deviceId) AS uid3;
 
 actual =
     SELECT *
@@ -97,19 +113,29 @@ avaliabilities =
          ON e.uid3 == a.uid3;
 
 // Add device dimensions 
-//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Azure.SRE.OI/AzureIotHubDeviceActiveInfoDailyV2/2019/11/Data_2019_11_18.ss?property=info
+//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Cloud.AzureSRE.AzureIoTEdge/P360EdgeActiveDevicesPROD/2019/11/Data_2019_11_14.ss?property=info
+#DECLARE DevicesStream string = @IoTEdgeStream + ".P360EdgeActiveDevices" + @Stage;
+AzureAnalytics.Initialize
+(
+    entity = @DevicesStream
+);
 deviceInfo =
-    SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
+    AzureAnalytics.LoadStream
+    (
+        entity = @DevicesStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
 
 avaliabilities =
-    SELECT a.module,
-           a.avaliability,
-           a.actualRunningDurationSeconds,
-           a.expectedRunningDurationSeconds,
-           a.deviceId,
+    SELECT @EndDateTime AS usageTime,
            d.resourceId,
-           d.iotHubName,
            d.resourceLocation,
+           a.actualRunningDurationSeconds AS numeratorQuantity,
+           a.expectedRunningDurationSeconds AS denominatorQuantity,
+           a.module,
+           a.deviceId,
+           d.iotHubName,
            d.resourceDeploymentUnit,
            d.skuName,
            d.subscriptionType,
@@ -131,19 +157,31 @@ avaliabilities =
 
 // Split into agent and hub
 agentAvaliabilities =
-    SELECT *
+    SELECT "Microsoft.AzureIOTHub.EdgeAgentAvailability" + @Stage AS meterId,
+           *
     FROM avaliabilities
     WHERE module == @AgentName;
 
 hubAvaliabilities =
-    SELECT *
+    SELECT "Microsoft.AzureIOTHub.EdgeHubAvailability" + @Stage AS meterId,
+           *
     FROM avaliabilities
     WHERE module == @HubName;
 
 // Add version info
 //https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Cloud.AzureSRE.AzureIoTEdge/P360IoTEdgeMessagesPROD/2019/11/Data_2019_11_19.ss?property=info
+#DECLARE MessagesStream string = @IoTEdgeStream + ".P360IoTEdgeMessages" + @Stage;
+AzureAnalytics.Initialize
+(
+    entity = @MessagesStream
+);
 versionInfo =
-    SSTREAM"D:/Scope/Data/MessagesSent.ss";
+    AzureAnalytics.LoadStream
+    (
+        entity = @MessagesStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
 
 agentVersion =
     SELECT deviceId,
@@ -176,15 +214,32 @@ hubAvaliabilities =
          ON a.deviceId == v.deviceId;
 
 // output
-OUTPUT agentAvaliabilities
-TO "D:/Scope/Data/agent.txt"
-USING DefaultTextOutputter();
+AzureAnalytics.PublishStream
+(
+    entity = @IoTEdgeStream + ".P360EdgeAgentAvailability" + @Stage,
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = agentAvaliabilities,
+    clusteredBy = "usageTime, resourceId",
+    sortedBy = "usageTime, resourceId",
+    expiryInDays = @ExpiryInDays
+);
 
-OUTPUT hubAvaliabilities
-TO "D:/Scope/Data/hub.txt"
-USING DefaultTextOutputter();
+AzureAnalytics.PublishStream
+(
+    entity = @IoTEdgeStream + ".P360EdgeHubAvailability" + @Stage,
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = hubAvaliabilities,
+    clusteredBy = "usageTime, resourceId",
+    sortedBy = "usageTime, resourceId",
+    expiryInDays = @ExpiryInDays
+);
 
-//#DECLARE localCreated string = @"/local/Dev/lefitche/P360/" + "avaliabilitytest" + ".csv";
-//OUTPUT avaliabilities
-//TO @localCreated
+//OUTPUT agentAvaliabilities
+//TO "D:/Scope/Data/agent.txt"
+//USING DefaultTextOutputter();
+//
+//OUTPUT hubAvaliabilities
+//TO "D:/Scope/Data/hub.txt"
 //USING DefaultTextOutputter();

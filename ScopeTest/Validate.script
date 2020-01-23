@@ -1,0 +1,107 @@
+﻿//Script GUID:4f9c2c66-1c9a-4a7f-a762-13676aafa8fa
+//Used for tracking history
+
+/*
+ * Usage:
+ *
+ * Parameters:
+ * Datasource - The entity to validate. Retrieve name from Geneva Data Catalog
+ * KpiId - The meter ID to validate in the given entity
+ * Domain - One of "External", "Internal"
+ * SchemaVersion - "V1", "V2"
+ * AggregationType - "Sum", "Average", "Percentage", "Ratio", "DistinctCount"
+ * DataSourceType - "Stream" for stream entity, "Snapshot" - for snapshot
+ */
+
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.4.module" AS AzureAnalytics;
+REFERENCE @"/shares/AzureAnalytics.Prod/GenevaKpiService/KpiTransformation/KpiTransformation.dll";
+USING GenevaKpiService.KpiTransformation;
+
+#DECLARE startTime string = @@startDateTime@@;
+#DECLARE endTime string = @@endDateTime@@;
+#DECLARE datasource string = "Microsoft.Cloud.AzureSRE.AzureIoTEdge.P360EdgeHubAvailabilityPPE";
+#DECLARE kpiId string = "Microsoft.AzureIOTHub.EdgeHubAvailabilityPPE";
+#DECLARE dataSourceType string = "Stream";
+#DECLARE customDimensions string = "version, meterId, deviceId, iotHubName, resourceDeploymentUnit, skuName, subscriptionType, resourceGroup, solutionType, createdFromSuite, cloudType, SDKVersion, DotnetRuntimeVersion, OSName, OSVersion, OSSkuId, HWPlatform, OSSimplified";
+
+#DECLARE gdprScope bool = false;
+#DECLARE gdprColumnTags string = "";
+
+
+#DECLARE domain string = "Internal"; 
+#DECLARE schemaVersion string = "V1";  
+#DECLARE aggregationType string = "Raito";
+
+// for V2 schema it is one of the following values: azureSubscriptionId, armResourceId, servicetreeId, employeeAlias, offeringId
+// for V1 schema it is "resourceId"
+#IF (@schemaVersion == "V1")
+    #DECLARE referenceIdColumnName string = "resourceId"; 
+#ELSE
+    #DECLARE referenceIdColumnName string = "@@ReferenceIdColumnName@@"; 
+#ENDIF
+
+//------------------------------------------------------------------------------
+//Validate source data and return the erros and warnings
+//------------------------------------------------------------------------------
+failValidateResults = VIEW "/shares/AzureAnalytics.Prod/GenevaKpiService/KpiTransformation/Validation.view" PARAMS
+    (
+        datasource  = @datasource,
+        dataSourceType  = @dataSourceType,
+        kpiId  = @kpiId,
+        customDimensionsStr = @customDimensions,
+        aggregationType = @aggregationType,
+        domain = @domain,
+        schemaVersion = @schemaVersion,
+        referenceIdColumnName = @referenceIdColumnName,
+        startTime = @startTime,
+        endTime = @endTime
+    );
+
+
+    
+errors =
+    SELECT SchemaValidationErrors,
+           DataValidationErrors
+    FROM failValidateResults
+    WHERE !string.IsNullOrWhiteSpace(DataValidationErrors) ||
+          !string.IsNullOrWhiteSpace(SchemaValidationErrors);
+
+
+
+
+warnings =
+    SELECT DataValidationWarnings
+    FROM failValidateResults
+    WHERE !string.IsNullOrWhiteSpace(DataValidationWarnings);
+
+
+
+
+    #DECLARE outputErrorsEntity string = "@@outputErrorsEntity@@";
+    #DECLARE outputWarningsEntity string = "@@outputWarningsEntity@@";
+    #DECLARE outputMDMEntity string = "@@outputMDMEntity@@";  
+    #DECLARE validationsServiceOid string = "@@ValidationsServiceOid@@"; 
+
+    AzureAnalytics.PublishSnapshot
+    (
+       entity = @outputErrorsEntity,
+       snapshotDateTime = @startTime,
+       periodInMinutes = "1440",
+       input = errors,
+       expiryInDays = "10",
+	   InGDPRScope = @gdprScope,
+	   columnTags = @gdprColumnTags,
+       serviceOid = @validationsServiceOid
+    );
+	
+    AzureAnalytics.PublishSnapshot
+    (
+       entity = @outputWarningsEntity,
+       snapshotDateTime = @startTime,
+       periodInMinutes = "1440",
+       input = warnings,
+       expiryInDays = "10",
+	   InGDPRScope = @gdprScope,
+	   columnTags = @gdprColumnTags,
+       serviceOid = @validationsServiceOid
+    );

@@ -3,57 +3,43 @@
 
 MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
 
-#DECLARE CloudType string = @"Public";
+#DECLARE StartDate string = @@startDateTime@@;
+#DECLARE EndDate string = @@endDateTime@@;
+//#DECLARE StartDate string = @"2019-11-28 00:00";
+//#DECLARE EndDate string = @"2019-11-29 00:00";
+#DECLARE JobFrequency string = @"1440";
+#DECLARE ExpiryInDays string = @"730";
+#DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
 
+AzureAnalytics.Initialize
+(
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testdata10"
+);
 SUMetricsRawUnion =
-    VIEW "HubSUMetrics.view";
+    AzureAnalytics.LoadStream
+    (
+        entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testdata10",
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
 
 EdgePrometheousMetrics =
     SELECT dimKey1 AS name,
-           PersistHelper.StripTags(dimKey2) AS tags,
-           PersistHelper.GenerateDeviceId(@CloudType, dimIotHubName, dimKey3) AS deviceId,
+           dimKey2 AS tags,
+           //           PersistHelper.GenerateDeviceId(@CloudType, dimIotHubName, dimKey3) AS deviceId,
+           dimKey3 AS deviceId,
            new DateTime(metricValue1, DateTimeKind.Utc) AS time,
            metricValue11 AS value
     FROM SUMetricsRawUnion
     WHERE metricName == "EdgeRuntimeDiagnostics";
 
-EdgePrometheousMetrics =
-    SELECT *
-    WHERE tags != null;
-
-OUTPUT EdgePrometheousMetrics
-TO "D:/Scope/Data/AllMetrics.txt"
-USING DefaultTextOutputter();
-
-//AzureAnalytics.PublishStream(
-//            entity = @PersistedRawFolder + @".EdgePrometheousMetrics",
-//            startDateTime = @StartDate,
-//            periodInMinutes = @JobFrequency,
-//            input = EdgePrometheousMetrics,
-//            clusteredBy  = "name",
-//            sortedBy  = "time",
-//            expiryInDays  = @ExpiryInDays);
-            
-
-
-
-
-
-
-
-
-
-
-
-
-EdgePrometheousMetrics =
-    SELECT TOP 5 *
-    FROM EdgePrometheousMetrics;
-
-OUTPUT EdgePrometheousMetrics
-TO "D:/Scope/Data/AllMetricsTop5.txt"
-USING DefaultTextOutputter();
-
-#CS
-
-#ENDCS
+AzureAnalytics.PublishStream
+(
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testProm10",
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = EdgePrometheousMetrics,
+    clusteredBy = "name",
+    sortedBy = "time",
+    expiryInDays = @ExpiryInDays
+);

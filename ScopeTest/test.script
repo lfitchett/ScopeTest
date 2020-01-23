@@ -3,45 +3,51 @@
 
 MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
 
-//#DECLARE StartDate string = @@startDateTime@@;
-#DECLARE StartDate string = @"2019-11-18 00:00";
-#DECLARE EndDate string = @"2019-11-19 00:00";
-
+//#DECLARE StartDate string = @"2019-11-28 00:00";
+//#DECLARE EndDate string = @"2019-11-29 00:00";
+#DECLARE StartDate string = @@startDateTime@@;
+#DECLARE EndDate string = @@endDateTime@@;
+#DECLARE JobFrequency string = @"1440";
+#DECLARE ExpiryInDays string = @"730";
 #DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
 
-#DECLARE ServiceAnalyticsSUStreamName string = @"Microsoft.Azure.SRE.OI.PersistedRaw.DHubSUServiceAnalytics12112015V1_AllClouds";
-AzureAnalytics.Initialize(
-    entity = @ServiceAnalyticsSUStreamName);
+#DECLARE IoTEdgeStream string = "Microsoft.Cloud.AzureSRE.AzureIoTEdge";
+#DECLARE Stage string = "PPE";
 
-stream = AzureAnalytics.LoadStream(
-    entity = @ServiceAnalyticsSUStreamName,
-    startDateTime = @StartDate,
-    endDateTime = @EndDate);
+//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Cloud.AzureSRE.AzureIoTEdge/P360EdgeActiveDevicesPROD/2019/11/Data_2019_11_14.ss?property=info
+#DECLARE DevicesStream string = @IoTEdgeStream + ".P360EdgeActiveDevices" + @Stage;
+AzureAnalytics.Initialize
+(
+    entity = @DevicesStream
+);
+deviceInfo =
+    AzureAnalytics.LoadStream
+    (
+        entity = @DevicesStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
 
-//stream =
-//    SSTREAM"D:/Scope/Data/ActiveEdgeDevices.ss";
+deviceInfo = SELECT TOP 10 *;
+stream = SELECT @StartDateTime AS StartDate, ARRAY_AGG(resourceId) AS resourceIds FROM deviceInfo;
 
 stream =
-    SELECT TOP 1 *
-    FROM stream;
-
-stream =
-    SELECT @StartDateTime AS StartDate,
+    SELECT StartDate,
            "Public" AS CloudType,
-           @StartDateTime AS PreciseTimeStamp,
+           StartDate AS PreciseTimeStamp,
            "" AS Tenant,
            "" AS TenantName,
            "" AS Role,
            "" AS RoleInstance,
            "" AS EventId,
-           "" AS metricName,
+           "EdgeRuntimeDiagnostics" AS metricName,
            "" AS metadataReference,
            "FakeHub" AS dimIotHubName,
            "" AS dimIotHubArmResourceId,
            "FakeSubscription" AS dimSubscriptionId,
            metric.Name AS dimKey1,
            metric.Tags AS dimKey2,
-           TestHelper.GetDeviceId(metric.Tags) AS dimKey3,
+           metric.DeviceId AS dimKey3,
            "" AS dimKey4,
            "" AS dimKey5,
            "" AS dimKey6,
@@ -61,12 +67,15 @@ stream =
            0 AS metricValue13,
            0 AS metricValue14
     FROM stream
-         CROSS APPLY FakeData.GenerateSeries(@StartDateTime) AS metric;
+         CROSS APPLY GenerateMetrics.GenerateSeries(@StartDateTime, resourceIds) AS metric;
 
-//OUTPUT stream
-//TO "D:/Scope/Data/out2.txt"
-//USING DefaultTextOutputter();
-
-OUTPUT stream
-TO @"/local/Dev/lefitche/P360/test1.csv"
-USING DefaultTextOutputter();
+AzureAnalytics.PublishStream
+(
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testdata5",
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = stream,
+    clusteredBy = "metricName",
+    sortedBy = "StartDate",
+    expiryInDays = @ExpiryInDays
+); 
