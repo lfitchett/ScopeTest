@@ -1,0 +1,49 @@
+﻿//Script GUID:3147a365-1b56-4746-8df7-00b7f663ad08
+//Used for tracking history
+
+//Script GUID:2e0a8aae-dda6-4671-aa82-54b3c553a5e3
+//Used for tracking history
+
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
+
+#DECLARE StartDate string = DateTime.Now.Date.AddDays( - 5).ToString();
+#DECLARE EndDate string = DateTime.Now.Date.AddDays( - 4).ToString();
+//#DECLARE StartDate string = @@startDateTime@@;
+//#DECLARE EndDate string = @@endDateTime@@;
+#DECLARE JobFrequency string = @"1440";
+#DECLARE ExpiryInDays string = @"730";
+#DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
+
+#DECLARE IoTEdgeStream string = "Microsoft.Cloud.AzureSRE.AzureIoTEdge";
+#DECLARE Stage string = "PROD";
+
+//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Cloud.AzureSRE.AzureIoTEdge/P360EdgeActiveDevicesPROD/2019/11/Data_2019_11_14.ss?property=info
+#DECLARE DevicesStream string = @IoTEdgeStream + ".P360EdgeActiveDevices" + @Stage;
+AzureAnalytics.Initialize
+(
+    entity = @DevicesStream
+);
+deviceInfo =
+    AzureAnalytics.LoadStream
+    (
+        entity = @DevicesStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
+
+customers =
+    SELECT resourceId,
+           COUNT(value) AS count
+    FROM deviceInfo
+    GROUP BY resourceId;
+
+AzureAnalytics.PublishStream
+(
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.stageTest2",
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = customers,
+    clusteredBy = "resourceId",
+    sortedBy = "resourceId",
+    expiryInDays = @ExpiryInDays
+); 

@@ -4,8 +4,8 @@
 MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
 
 //#DECLARE StartDate string = @@startDateTime@@;
-#DECLARE StartDate string = @"2020-1-6 00:00";
-#DECLARE EndDate string = @"2020-1-8 00:00";
+#DECLARE StartDate string = @"2020-3-30 00:00";
+#DECLARE EndDate string = @"2020-3-31 00:00";
 #DECLARE JobFrequency string = @"1440";
 #DECLARE ExpiryInDays string = @"730";
 #DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
@@ -120,7 +120,7 @@ EdgeRuntimeDiag =
 
 AzureAnalytics.PublishStream
 (
-    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.realdata2",
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.realdata6",
     startDateTime = @StartDate,
     periodInMinutes = @JobFrequency,
     input = EdgeRuntimeDiag,

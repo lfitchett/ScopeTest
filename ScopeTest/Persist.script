@@ -3,22 +3,26 @@
 
 MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
 
-#DECLARE StartDate string = @@startDateTime@@;
-#DECLARE EndDate string = @@endDateTime@@;
-//#DECLARE StartDate string = @"2019-11-28 00:00";
-//#DECLARE EndDate string = @"2019-11-29 00:00";
+//#DECLARE StartDate string = @@startDateTime@@;
+//#DECLARE EndDate string = @@endDateTime@@;
+#DECLARE StartDate string = @"2020-5-24 00:00";
+#DECLARE EndDate string = @"2020-5-25 00:00";
 #DECLARE JobFrequency string = @"1440";
 #DECLARE ExpiryInDays string = @"730";
 #DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
 
+#DECLARE Res_Lookup string = @"/local/AzureIoT/DO_NOT_DELETE/" + Convert.ToDateTime(@StartDate).ToString("yyyyMM") + ".txt";
+#DECLARE Res_LookupFileName string = System.IO.Path.GetFileName(@Res_Lookup);
+RESOURCE @Res_Lookup;
+
 AzureAnalytics.Initialize
 (
-    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testdata10"
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.realdata10"
 );
 SUMetricsRawUnion =
     AzureAnalytics.LoadStream
     (
-        entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testdata10",
+        entity = "Microsoft.Azure.SRE.OI.lefitche.P360.realdata10",
         startDateTime = @StartDate,
         endDateTime = @EndDate
     );
@@ -26,16 +30,15 @@ SUMetricsRawUnion =
 EdgePrometheousMetrics =
     SELECT dimKey1 AS name,
            dimKey2 AS tags,
-           //           PersistHelper.GenerateDeviceId(@CloudType, dimIotHubName, dimKey3) AS deviceId,
-           dimKey3 AS deviceId,
-           new DateTime(metricValue1, DateTimeKind.Utc) AS time,
+           Hasher.GetHashedDeviceId(dimKey3, dimIotHubName, @Res_LookupFileName) AS deviceId,
+           new DateTime(metricValue1 ?? 0, DateTimeKind.Utc) AS time,
            metricValue11 AS value
     FROM SUMetricsRawUnion
     WHERE metricName == "EdgeRuntimeDiagnostics";
 
 AzureAnalytics.PublishStream
 (
-    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.testProm10",
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.realProm10",
     startDateTime = @StartDate,
     periodInMinutes = @JobFrequency,
     input = EdgePrometheousMetrics,
@@ -43,3 +46,35 @@ AzureAnalytics.PublishStream
     sortedBy = "time",
     expiryInDays = @ExpiryInDays
 );
+
+#CS 
+using Microsoft.SCOPE.Types;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using ScopeRuntime;
+using System.Linq;
+using System.Runtime.InteropServices;
+using Newtonsoft.Json;
+using System.Security.Cryptography;
+
+public static class Hasher
+{
+    public static string GetHashedDeviceId(string deviceId, string iotHubName, string filePath)
+    {   
+        string randomizer = System.IO.File.ReadAllText(filePath).Trim();
+        iotHubName = iotHubName.ToUpper();
+
+        SHA256Managed hashstring = new SHA256Managed();
+        byte[] hashedId = hashstring.ComputeHash(Encoding.Unicode.GetBytes(deviceId + iotHubName + randomizer));
+        string hashString = string.Empty;
+        foreach (byte x in hashedId)
+        {
+            hashString += String.Format("{0:x2}", x);
+        }
+
+        return hashString;
+    }
+}
+#ENDCS
