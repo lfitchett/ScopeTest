@@ -43,6 +43,10 @@
       <ScopeOldParameters>startDateTime=(\"2019-11-28 00:00\"),endDateTime=(\"2019-11-29 00:00\")</ScopeOldParameters>
       <ScopeClusterParameters>startDateTime=(\"2019-11-28 00:00\"),endDateTime=(\"2019-11-29 00:00\")</ScopeClusterParameters>
     </Script>
+    <Script Include="test2.script">
+      <RemoveUselessParameters>False</RemoveUselessParameters>
+      <ScopeClusterParameters>startDateTime=(\"2020-6-25 00:00\"),endDateTime=(\"2020-6-26 00:00\")</ScopeClusterParameters>
+    </Script>
     <Script Include="Validate.script" />
     <ScriptCode Include="avaliability.script.cs">
       <DependentUpon>avaliability.script</DependentUpon>
@@ -62,6 +66,9 @@
     <ScriptCode Include="test.script.cs">
       <DependentUpon>test.script</DependentUpon>
     </ScriptCode>
+    <ScriptCode Include="test2.script.cs">
+      <DependentUpon>test2.script</DependentUpon>
+    </ScriptCode>
     <ScriptCode Include="Validate.script.cs">
       <DependentUpon>Validate.script</DependentUpon>
     </ScriptCode>
@@ -70,14 +77,6 @@
     <Content Include="HubSUMetrics.view">
       <SubType>Content</SubType>
     </Content>
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="Newtonsoft.Json">
-      <Name>Newtonsoft.Json</Name>
-      <AssemblyName>Newtonsoft.Json.dll</AssemblyName>
-      <HintPath>..\..\..\..\.nuget\packages\newtonsoft.json\12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
   </ItemGroup>
   <Import Project="$(AppData)\Microsoft\ScopeStudio\MsBuild\1.0\Scope.targets" />
 </Project>

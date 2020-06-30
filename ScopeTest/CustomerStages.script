@@ -6,7 +6,7 @@
 
 MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
 
-#DECLARE StartDate string = DateTime.Now.Date.AddDays( - 5).ToString();
+#DECLARE StartDate string = DateTime.Now.Date.AddDays( - 10).ToString();
 #DECLARE EndDate string = DateTime.Now.Date.AddDays( - 4).ToString();
 //#DECLARE StartDate string = @@startDateTime@@;
 //#DECLARE EndDate string = @@endDateTime@@;
@@ -31,18 +31,18 @@ deviceInfo =
         endDateTime = @EndDate
     );
 
-customers =
-    SELECT resourceId,
-           COUNT(value) AS count
-    FROM deviceInfo
-    GROUP BY resourceId;
+//customers =
+//    SELECT resourceId,
+//           COUNT(value) AS count
+//    FROM deviceInfo
+//    GROUP BY resourceId;
 
 AzureAnalytics.PublishStream
 (
-    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.stageTest2",
+    entity = "Microsoft.Azure.SRE.OI.lefitche.P360.stageTest3",
     startDateTime = @StartDate,
     periodInMinutes = @JobFrequency,
-    input = customers,
+    input = deviceInfo,
     clusteredBy = "resourceId",
     sortedBy = "resourceId",
     expiryInDays = @ExpiryInDays

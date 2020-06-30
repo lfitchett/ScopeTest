@@ -1,0 +1,202 @@
+﻿//Script GUID:45bd9b51-3571-49ed-96be-c9ac844ff8db
+//Used for tracking history
+
+MODULE @"/shares/AzureAnalytics.Prod/Sdk/AzureAnalytics1.3.module" AS AzureAnalytics;
+
+#DECLARE StartDate string = DateTime.Now.Date.AddDays( - 4).ToString();
+#DECLARE EndDate string = DateTime.Now.Date.AddDays( - 3).ToString();
+//#DECLARE StartDate string = @@startDateTime@@;
+//#DECLARE EndDate string = @@endDateTime@@;
+#DECLARE JobFrequency string = @"1440";
+#DECLARE ExpiryInDays string = @"730";
+#DECLARE StartDateTime DateTime = DateTime.Parse(@StartDate);
+#DECLARE EndDateTime DateTime = DateTime.Parse(@EndDate);
+
+#DECLARE IoTEdgeStream string = "Microsoft.Cloud.AzureSRE.AzureIoTEdge";
+#DECLARE Stage string = "PPE";
+
+//https://aad.cosmos11.osdinfra.net/cosmos/AzureSRE/shares/AzureAnalytics.Data1/AzureAnalytics.Data1.PublishedData/Microsoft.Cloud.AzureSRE.AzureIoTEdge/P360EdgeActiveDevicesPROD/2019/11/Data_2019_11_14.ss?property=info
+#DECLARE DevicesStream string = @IoTEdgeStream + ".P360EdgeActiveDevices" + @Stage;
+AzureAnalytics.Initialize
+(
+    entity = @DevicesStream
+);
+deviceInfo =
+    AzureAnalytics.LoadStream
+    (
+        entity = @DevicesStream,
+        startDateTime = @StartDate,
+        endDateTime = @EndDate
+    );
+
+//deviceInfo =
+//    SSTREAM @"C:\Users\Lee\Downloads\Data_2020_06_27 (1).ss";
+
+deviceInfo =
+    SELECT *,
+           value.Split('/').LastOrDefault() AS deviceId;
+
+deviceInfo =
+    SELECT TOP 10 * ;
+
+//avaliableSpace =
+//    SELECT @EndDateTime AS usageTime,
+//           resourceId,
+//           resourceLocation,
+//           30000000000.0 AS quantity,
+//           deviceId,
+//           iotHubName,
+//           resourceDeploymentUnit,
+//           skuName,
+//           subscriptionType,
+//           resourceGroup,
+//           solutionType,
+//           createdFromSuite,
+//           cloudType,
+//           SDKVersion,
+//           RuntimeVersion AS DotnetRuntimeVersion,
+//           OSName,
+//           OSVersion,
+//           OSSkuId,
+//           HWPlatform,
+//           OSSimplified,
+//           "Microsoft.AzureIOTHub.P360EdgeAvaliableDisk" + @Stage AS meterId
+//    FROM deviceInfo;
+//
+//totalSpace =
+//    SELECT @EndDateTime AS usageTime,
+//           resourceId,
+//           resourceLocation,
+//           32000000000.0 AS quantity,
+//           deviceId,
+//           iotHubName,
+//           resourceDeploymentUnit,
+//           skuName,
+//           subscriptionType,
+//           resourceGroup,
+//           solutionType,
+//           createdFromSuite,
+//           cloudType,
+//           SDKVersion,
+//           RuntimeVersion AS DotnetRuntimeVersion,
+//           OSName,
+//           OSVersion,
+//           OSSkuId,
+//           HWPlatform,
+//           OSSimplified,
+//           "Microsoft.AzureIOTHub.P360EdgeTotalDisk" + @Stage AS meterId
+//    FROM deviceInfo;
+//
+//// output
+//AzureAnalytics.PublishStream
+//(
+//    entity = @IoTEdgeStream + ".P360EdgeAvaliableDiskFix" + @Stage,
+//    startDateTime = @StartDate,
+//    periodInMinutes = @JobFrequency,
+//    input = avaliableSpace,
+//    clusteredBy = "usageTime, resourceId",
+//    sortedBy = "usageTime, resourceId",
+//    expiryInDays = @ExpiryInDays
+//);
+//
+//AzureAnalytics.PublishStream
+//(
+//    entity = @IoTEdgeStream + ".P360EdgeTotalDiskFix" + @Stage,
+//    startDateTime = @StartDate,
+//    periodInMinutes = @JobFrequency,
+//    input = totalSpace,
+//    clusteredBy = "usageTime, resourceId",
+//    sortedBy = "usageTime, resourceId",
+//    expiryInDays = @ExpiryInDays
+//);
+
+//OUTPUT avaliableSpace
+//TO "D:/Scope/Data/avaliableSpace.txt"
+//USING DefaultTextOutputter();
+//
+//OUTPUT totalSpace
+//TO "D:/Scope/Data/totalSpace.txt"
+//USING DefaultTextOutputter();
+
+
+
+localMessagesToEH =
+    SELECT @EndDateTime AS usageTime,
+           resourceId,
+           resourceLocation,
+           200.0 AS quantity,
+           "TEST1XQ4fJ7tQDkuGAGkU5Pjkv6wRvUbW7DDZdsspUEA" AS module,
+           deviceId,
+           iotHubName,
+           resourceDeploymentUnit,
+           skuName,
+           subscriptionType,
+           resourceGroup,
+           solutionType,
+           createdFromSuite,
+           cloudType,
+           SDKVersion,
+           RuntimeVersion AS DotnetRuntimeVersion,
+           OSName,
+           OSVersion,
+           OSSkuId,
+           HWPlatform,
+           OSSimplified,
+           "Microsoft.AzureIOTHub.P360EdgeLocalMessagesIn" + @Stage AS meterId
+    FROM deviceInfo;
+
+localMessagesFromEH =
+    SELECT @EndDateTime AS usageTime,
+           resourceId,
+           resourceLocation,
+           200.0 AS quantity,
+           "TEST2XQ4fJ7tQDkuGAGkU5Pjkv6wRvUbW7DDZdsspUEA" AS module,
+           deviceId,
+           iotHubName,
+           resourceDeploymentUnit,
+           skuName,
+           subscriptionType,
+           resourceGroup,
+           solutionType,
+           createdFromSuite,
+           cloudType,
+           SDKVersion,
+           RuntimeVersion AS DotnetRuntimeVersion,
+           OSName,
+           OSVersion,
+           OSSkuId,
+           HWPlatform,
+           OSSimplified,
+           "Microsoft.AzureIOTHub.P360EdgeLocalMessagesOut" + @Stage AS meterId
+    FROM deviceInfo;
+
+// output
+AzureAnalytics.PublishStream
+(
+    entity = @IoTEdgeStream + ".P360EdgeLocalMessagesInFix" + @Stage,
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = localMessagesToEH,
+    clusteredBy = "usageTime, resourceId",
+    sortedBy = "usageTime, resourceId",
+    expiryInDays = @ExpiryInDays
+);
+
+AzureAnalytics.PublishStream
+(
+    entity = @IoTEdgeStream + ".P360EdgeLocalMessagesOutFix" + @Stage,
+    startDateTime = @StartDate,
+    periodInMinutes = @JobFrequency,
+    input = localMessagesFromEH,
+    clusteredBy = "usageTime, resourceId",
+    sortedBy = "usageTime, resourceId",
+    expiryInDays = @ExpiryInDays
+);
+
+//OUTPUT localMessagesToEH
+//TO "D:/Scope/Data/localMessagesToEH.txt"
+//USING DefaultTextOutputter();
+//
+//OUTPUT localMessagesFromEH
+//TO "D:/Scope/Data/localMessagesFromEH.txt"
+//USING DefaultTextOutputter();
